@@ -46,7 +46,7 @@ if uploaded_file is not None:
     else:
         # ਫੋਟੋ (Image) ਪ੍ਰੋਸੈਸ ਕਰਨ ਲਈ
         uploaded_image = Image.open(uploaded_file)
-        st.image(uploaded_image, caption="Uploaded Image Preview", use_column_width=True)
+        st.image(uploaded_image, caption="Uploaded Image Preview", use_container_width=True)
 
 elif text_input:
     extracted_text = text_input
