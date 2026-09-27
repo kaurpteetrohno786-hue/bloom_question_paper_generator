@@ -89,7 +89,7 @@ if st.button("🚀 Generate Question Paper"):
             """
 
             try:
-                model = genai.GenerativeModel("gemini-2.5-flash")
+                model = genai.GenerativeModel("gemini-3.8-flash")
                 
                 # ਜੇ ਫੋਟੋ ਅਪਲੋਡ ਕੀਤੀ ਹੈ ਤਾਂ Gemini Multi-modal ਵਰਤਿਆ ਜਾਵੇਗਾ
                 if uploaded_image is not None:
