@@ -1,42 +1,46 @@
 import streamlit as st
 import google.generativeai as genai
 import pypdf
-from PIL import Image
+from fpdf import FPDF
 
-# 1. Page Title & UI Configuration
+# Page Setup
 st.set_page_config(page_title="Bloom's Taxonomy Question Generator", layout="wide")
 st.title("📚 LLM-based Bloom's Taxonomy Question Paper Generator")
 
-# 2. Sidebar for API Key (ਸੁਰੱਖਿਅਤ ਤਰੀਕਾ)
-st.sidebar.header("⚙️ Settings")
-api_key = st.sidebar.text_input("Enter Gemini API Key:", type="password")
-
-if api_key:
+# Streamlit Secrets ਤੋਂ API Key ਪ੍ਰਾਪਤ ਕਰਨਾ
+try:
+    api_key = st.secrets["GEMINI_API_KEY"]
     genai.configure(api_key=api_key)
+except Exception as e:
+    st.error("API Key ਨਹੀ ਮਿਲੀ! ਕਿਰਪਾ ਕਰਕੇ Streamlit Secrets ਵਿੱਚ GEMINI_API_KEY ਸੈੱਟ ਕਰੋ।")
 
-# 3. File Upload (PDF/Image) & Text Input
-st.subheader("1. Upload Study Material (PDF / Image) or Paste Text")
-uploaded_file = st.file_uploader("Upload PDF or Image (JPG, PNG)", type=["pdf", "png", "jpg", "jpeg"])
+# Function to create PDF
+def create_pdf(text):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=11)
+    
+    clean_text = text.encode('latin-1', 'replace').decode('latin-1')
+    
+    for line in clean_text.split('\n'):
+        pdf.multi_cell(0, 8, txt=line)
+    
+    return pdf.output(dest='S').encode('latin-1')
+
+# Main UI
+st.subheader("1. Upload Study Material or Paste Text")
+uploaded_file = st.file_uploader("Upload PDF File", type=["pdf"])
 text_input = st.text_area("Or Paste Content/Syllabus Here", height=150)
 
 extracted_text = ""
-loaded_image = None
 
 if uploaded_file is not None:
-    file_type = uploaded_file.name.split('.')[-1].lower()
-    
-    if file_type == "pdf":
-        pdf_reader = pypdf.PdfReader(uploaded_file)
-        for page in pdf_reader.pages:
-            extracted_text += page.extract_text() or ""
-    elif file_type in ["png", "jpg", "jpeg"]:
-        loaded_image = Image.open(uploaded_file)
-        st.image(loaded_image, caption="Uploaded Image Preview", use_container_width=True)
-
+    pdf_reader = pypdf.PdfReader(uploaded_file)
+    for page in pdf_reader.pages:
+        extracted_text += page.extract_text() or ""
 elif text_input:
     extracted_text = text_input
 
-# 4. Bloom's Taxonomy Question Distribution
 st.subheader("2. Select Questions Count for Bloom's Taxonomy Levels")
 col1, col2, col3 = st.columns(3)
 
@@ -52,44 +56,50 @@ with col3:
     evaluate_count = st.number_input("Evaluate (Level 5)", min_value=0, value=1)
     create_count = st.number_input("Create (Level 6)", min_value=0, value=1)
 
-# 5. Generate Button Action
 if st.button("🚀 Generate Question Paper"):
-    if not api_key:
-        st.error("Please enter your Gemini API Key in the sidebar!")
-    elif not extracted_text and loaded_image is None:
-        st.warning("Please upload a PDF/Image or enter some text content.")
+    if not extracted_text:
+        st.warning("Please upload a PDF or enter some text content.")
     else:
         with st.spinner("Generating Question Paper based on Bloom's Taxonomy..."):
             prompt = f"""
-            You are an expert educator. Create a Question Paper based strictly on the provided content using Bloom's Taxonomy.
+            You are an expert educator. Create a Question Paper based strictly on the provided text using Bloom's Taxonomy.
+
+            Text Content:
+            {extracted_text[:4000]}
 
             Generate questions in the following exact breakdown:
-            - {remember_count} Remembering Questions (e.g., Define, List, Recall)
-            - {understand_count} Understanding Questions (e.g., Explain, Describe, Summarize)
-            - {apply_count} Applying Questions (e.g., Solve, Use, Demonstrate)
-            - {analyze_count} Analyzing Questions (e.g., Compare, Categorize, Differentiate)
-            - {evaluate_count} Evaluating Questions (e.g., Justify, Critique, Judge)
-            - {create_count} Creating Questions (e.g., Design, Formulate, Construct)
+            - {remember_count} Remembering Questions
+            - {understand_count} Understanding Questions
+            - {apply_count} Applying Questions
+            - {analyze_count} Analyzing Questions
+            - {evaluate_count} Evaluating Questions
+            - {create_count} Creating Questions
 
             Formatting Requirements:
             1. Group questions by Bloom's Taxonomy level with clear headings.
-            2. Mention marks for each question (e.g., [2 Marks], [5 Marks]).
+            2. Mention marks for each question.
             3. Provide a brief Answer Key / Marking Scheme at the end.
             """
 
             try:
-                model = genai.GenerativeModel("gemini-1.5-flash")
+                model = genai.GenerativeModel("gemini-2.5-flash")
+                response = model.generate_content(prompt)
                 
-                # If Image is uploaded
-                if loaded_image is not None:
-                    response = model.generate_content([prompt, loaded_image])
-                else:
-                    full_prompt = f"{prompt}\n\nText Content:\n{extracted_text[:4000]}"
-                    response = model.generate_content(full_prompt)
-                
+                st.session_state['generated_paper'] = response.text
                 st.success("Question Paper Generated Successfully!")
-                st.markdown("---")
-                st.markdown(response.text)
                 
             except Exception as e:
                 st.error(f"Error generating question paper: {e}")
+
+# Display Generated Paper and Download Option
+if 'generated_paper' in st.session_state:
+    st.markdown("---")
+    st.markdown(st.session_state['generated_paper'])
+    
+    pdf_data = create_pdf(st.session_state['generated_paper'])
+    st.download_button(
+        label="📥 Download Question Paper as PDF",
+        data=pdf_data,
+        file_name="Question_Paper.pdf",
+        mime="application/pdf"
+    )
