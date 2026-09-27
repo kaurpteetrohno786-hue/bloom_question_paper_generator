@@ -8,7 +8,7 @@ from fpdf import FPDF
 st.set_page_config(page_title="Bloom's Taxonomy Question Generator", layout="wide")
 st.title("📚 LLM-based Bloom's Taxonomy Question Paper Generator")
 
-# Streamlit Secrets ਤੋਂ API Key ਪ੍ਰਾਪਤ ਕਰਨਾ
+# Streamlit Secrets ਤੋਂ API Key ਪ੍ਰਾਪਤ ਕਰਨਾ (ਇੱਥੇ Variable ਦਾ ਨਾਮ ਲਿਖਣਾ ਹੈ)
 try:
     api_key = st.secrets["GEMINI_API_KEY"]
     genai.configure(api_key=api_key)
